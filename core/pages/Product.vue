@@ -94,6 +94,7 @@ function fetchData (store, route) {
  */
 function loadData ({ store, route }) {
   return new Promise((resolve, reject) => {
+    console.log('Entering loadData for Product root ' + new Date())
     EventBus.$emit('product-before-load', { store: store, route: route })
 
     store.dispatch('product/reset').then(() => {
@@ -152,13 +153,17 @@ export default {
   methods: {
     validateRoute () {
       let inst = this
-      inst.loading = true
-      loadData({ store: this.$store, route: this.$route }).then((res) => {
-        inst.loading = false
-        inst.defaultOfflineImage = inst.product.image
-        stateCheck.bind(this)()
-        this.$bus.$on('filter-changed-product', filterChanged.bind(this))
-      })
+      if (!inst.loading) {
+        inst.loading = true
+        loadData({ store: this.$store, route: this.$route }).then((res) => {
+          inst.loading = false
+          inst.defaultOfflineImage = inst.product.image
+          stateCheck.bind(this)()
+          this.$bus.$on('filter-changed-product', filterChanged.bind(this))
+        })
+      } else {
+        console.error('Error with loading = true in Product.vue; Reload page')
+      }
     },
     addToFavorite () {
       let self = this
@@ -185,18 +190,8 @@ export default {
           self.compare.isCompare = false
         })
       }
-    }
-  },
-  watch: {
-    '$route': 'validateRoute'
-  },
-  beforeDestroy () {
-    this.$bus.$off('filter-changed-product')
-    this.$bus.$off('product-after-priceupdate')
-  },
-  beforeMount () {
-    stateCheck.bind(this)()
-    this.$bus.$on('product-after-priceupdate', (product) => {
+    },
+    onAfterPriceUpdate (product) {
       if (product.sku === this.product.sku) {
       // join selected variant object to the store
         this.$store.dispatch('product/setCurrent', product)
@@ -205,8 +200,22 @@ export default {
             err
           }))
       }
-    })
-    this.$bus.$on('filter-changed-product', filterChanged.bind(this))
+    },
+    onAfterFilterChanged (filterOption) {
+      (filterChanged.bind(this)(filterOption))
+    }
+  },
+  watch: {
+    '$route': 'validateRoute'
+  },
+  beforeDestroy () {
+    this.$bus.$off('filter-changed-product', this.onAfterFilterChanged)
+    this.$bus.$off('product-after-priceupdate', this.onAfterPriceUpdate)
+  },
+  beforeMount () {
+    stateCheck.bind(this)()
+    this.$bus.$on('product-after-priceupdate', this.onAfterPriceUpdate)
+    this.$bus.$on('filter-changed-product', this.onAfterFilterChanged)
   },
   computed: {
     ...mapGetters({

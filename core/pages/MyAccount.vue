@@ -31,44 +31,21 @@ export default {
   },
   data () {
     return {
-      navigation: [
-        { title: 'My profile', link: '/my-account' },
-        { title: 'My shipping details', link: '/my-account/shipping-details' },
-        { title: 'My newsletter', link: '/my-account/newsletter' },
-        { title: 'My orders', link: '/my-account/orders' },
-        { title: 'My loyalty card', link: '#' },
-        { title: 'My product reviews', link: '#' }
-      ]
+      navigation: []
     }
   },
   created () {
-    this.$bus.$on('myAccount-before-updateUser', (updatedData) => {
-      if (updatedData) {
-        this.$store.dispatch('user/update', { customer: updatedData })
-      }
-    })
-    this.$bus.$on('myAccount-before-changePassword', (passwordData) => {
-      this.$store.dispatch('user/changePassword', passwordData)
-    })
-    this.$bus.$on('myAccount-before-updatePreferences', (updatedData) => {
-      if (updatedData) {
-        if (updatedData.action === 'subscribe') {
-          this.$bus.$emit('newsletter-after-subscribe', { email: updatedData.email })
-          this.$store.dispatch('user/updatePreferences', updatedData.preferences)
-        } else {
-          this.$bus.$emit('newsletter-after-unsubscribe', { email: updatedData.email })
-          this.$store.dispatch('user/updatePreferences', null)
-        }
-      }
-    })
+    this.$bus.$on('myAccount-before-updateUser', this.onBeforeUpdateUser)
+    this.$bus.$on('myAccount-before-changePassword', this.onBeforeChangePassword)
+    this.$bus.$on('myAccount-before-updatePreferences', this.onBeforeUpdatePreferences)
   },
   destroyed () {
-    this.$bus.$off('myAccount-before-updateUser')
-    this.$bus.$off('myAccount-before-changePassword')
-    this.$bus.$off('myAccount-before-updatePreferences')
+    this.$bus.$off('myAccount-before-updateUser', this.onBeforeUpdateUser)
+    this.$bus.$off('myAccount-before-changePassword', this.onBeforeChangePassword)
+    this.$bus.$off('myAccount-before-updatePreferences', this.onBeforeUpdatePreferences)
   },
   mounted () {
-    const usersCollection = global.db.usersCollection
+    const usersCollection = global.$VS.db.usersCollection
     usersCollection.getItem('current-token', (err, token) => {
       if (err) {
         console.error(err)
@@ -79,6 +56,25 @@ export default {
     })
   },
   methods: {
+    onBeforeUpdatePreferences (updatedData) {
+      if (updatedData) {
+        if (updatedData.action === 'subscribe') {
+          this.$bus.$emit('newsletter-after-subscribe', { email: updatedData.email })
+          this.$store.dispatch('user/updatePreferences', updatedData.preferences)
+        } else {
+          this.$bus.$emit('newsletter-after-unsubscribe', { email: updatedData.email })
+          this.$store.dispatch('user/updatePreferences', null)
+        }
+      }
+    },
+    onBeforeChangePassword (passwordData) {
+      this.$store.dispatch('user/changePassword', passwordData)
+    },
+    onBeforeUpdateUser (updatedData) {
+      if (updatedData) {
+        this.$store.dispatch('user/update', { customer: updatedData })
+      }
+    },
     notify (title) {
       if (title === 'My loyalty card' || title === 'My product reviews') {
         this.$bus.$emit('notification', {
